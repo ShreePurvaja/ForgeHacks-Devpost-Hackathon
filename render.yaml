@@ -1,0 +1,24 @@
+services:
+  # FastAPI Python Backend
+  - type: web
+    name: fhirflow-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: DEEPGRAM_STT_KEY
+        sync: false
+      - key: DEEPGRAM_TTS_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: LANGSMITH_PROJECT
+        value: Hospital-OS
+      - key: PYTHON_VERSION
+        value: 3.11.9
+

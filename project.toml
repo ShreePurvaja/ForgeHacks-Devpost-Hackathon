@@ -1,0 +1,36 @@
+[project]
+name = "fhirflow"
+version = "0.1.0"
+description = "Healthcare Claims Multi-Agent System powered by Groq GPT-OSS-120B, LangGraph, Deepgram, Pinecone, and FHIR"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv",
+    "sentence-transformers",
+    "langchain-huggingface",
+    "requests",
+    "langchain",
+    "langchain-core",
+    "langchain-community",
+    "langchain-groq",
+    "langchain-pinecone",
+    "langchain-text-splitters",
+    "groq",
+    "langgraph",
+    "pinecone",
+    "deepgram-sdk",
+    "pydub",
+    "fastapi",
+    "uvicorn",
+    "python-multipart",
+    "jinja2",
+    "pypdf",
+    "httpx",
+    "websockets",
+    "pandas",
+    "numpy",
+    "gunicorn",
+    "langsmith",
+    "deepeval",
+    "langchain-ollama",
+]

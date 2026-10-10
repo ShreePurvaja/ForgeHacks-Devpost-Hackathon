@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-10-10T10:00:27.770558",
+  "policy_change": {
+    "code": "97110",
+    "change": "visit_limit_12_per_year",
+    "impact": "medium",
+    "effective_date": "2026-03-01"
+  },
+  "update_stats": {
+    "total": 2,
+    "success": 2,
+    "failed": 0,
+    "procedure_ids": [
+      "proc005",
+      "proc004"
+    ]
+  },
+  "affected_procedures": [
+    "proc005",
+    "proc004"
+  ],
+  "total_affected": 2,
+  "compliance_status": "updated"
+}

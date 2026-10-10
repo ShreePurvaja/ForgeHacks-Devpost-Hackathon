@@ -1,0 +1,50 @@
+{
+  "agent": "fhir_procedure_updater",
+  "timestamp": "2026-10-10T10:00:27.781664",
+  "policies_processed": 3,
+  "stats": {
+    "total_affected": 6,
+    "procedures_updated": 6,
+    "procedures_flagged": 0,
+    "failed_updates": 0,
+    "procedure_ids": [
+      "proc003",
+      "proc002",
+      "proc001",
+      "proc005",
+      "proc004",
+      "proc006"
+    ]
+  },
+  "results": [
+    {
+      "policy": "J3420",
+      "change": "prior_auth_required >1000mcg",
+      "impact": "high",
+      "procedures_affected": 3,
+      "successful": 3,
+      "failed": 0,
+      "report_file": "compliance_report_J3420_20261010.json"
+    },
+    {
+      "policy": "97110",
+      "change": "visit_limit_12_per_year",
+      "impact": "medium",
+      "procedures_affected": 2,
+      "successful": 2,
+      "failed": 0,
+      "report_file": "compliance_report_97110_20261010.json"
+    },
+    {
+      "policy": "82652",
+      "change": "coverage_limited_to_deficiency",
+      "impact": "medium",
+      "procedures_affected": 1,
+      "successful": 1,
+      "failed": 0,
+      "report_file": "compliance_report_82652_20261010.json"
+    }
+  ],
+  "next_agent": "claims_validator",
+  "message": "FHIR database updated: 6 procedures modified"
+}

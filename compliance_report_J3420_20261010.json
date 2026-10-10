@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-10-10T10:00:27.752289",
+  "policy_change": {
+    "code": "J3420",
+    "change": "prior_auth_required >1000mcg",
+    "impact": "high",
+    "effective_date": "2026-03-01"
+  },
+  "update_stats": {
+    "total": 3,
+    "success": 3,
+    "failed": 0,
+    "procedure_ids": [
+      "proc003",
+      "proc002",
+      "proc001"
+    ]
+  },
+  "affected_procedures": [
+    "proc003",
+    "proc002",
+    "proc001"
+  ],
+  "total_affected": 3,
+  "compliance_status": "updated"
+}

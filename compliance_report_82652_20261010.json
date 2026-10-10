@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-10-10T10:00:27.781141",
+  "policy_change": {
+    "code": "82652",
+    "change": "coverage_limited_to_deficiency",
+    "impact": "medium",
+    "effective_date": "2026-03-01"
+  },
+  "update_stats": {
+    "total": 1,
+    "success": 1,
+    "failed": 0,
+    "procedure_ids": [
+      "proc006"
+    ]
+  },
+  "affected_procedures": [
+    "proc006"
+  ],
+  "total_affected": 1,
+  "compliance_status": "updated"
+}
