@@ -41,11 +41,14 @@ instance/
 *.sqlite
 *.sqlite3
 *.db-journal
-data/
-data/*.db
-data/*.sqlite
-data/*.sqlite3
-data/*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-journal
+
+# Whitelist essential local databases
+!data/claims.db
+!fhir_procedure_db.sqlite
+!agents/agent3/fhir_procedure_db.sqlite
 !data/.gitkeep
 
 # Uploads
@@ -160,8 +163,10 @@ Thumbs.db
 # Keep empty directories with .gitkeep
 !.gitkeep
 
-# Data directory - explicitly ignore everything except .gitkeep
+# Data directory - allow essential DB and policy documents
 data/*
+!data/claims.db
+!data/Brochure_Star_Comprehensive_Insurance_Policy_V_15_Web_633bcfcaaf.pdf
 !data/.gitkeep
 
 # Uploads directory - explicitly ignore everything except .gitkeep
