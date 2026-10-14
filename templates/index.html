@@ -408,6 +408,16 @@ function processMessage(msg){
       if(status==='speaking'){
         updateVoiceState('speaking','Agent speaking…');
         voiceTranscript.innerHTML=`<i class="fas fa-volume-up mr-2"></i>${message}`;
+        if(typeof window !== 'undefined' && 'speechSynthesis' in window){
+          window.speechSynthesis.cancel();
+          const cleanText = message.replace(/^.*?Speaking:\s*"?/i, '').replace(/["…]+$/g, '').trim();
+          if(cleanText){
+            const utt = new SpeechSynthesisUtterance(cleanText);
+            utt.rate = 0.95;
+            utt.pitch = 1.0;
+            window.speechSynthesis.speak(utt);
+          }
+        }
       } else if(status==='listening'){
         updateVoiceState('listening','Listening for patient response…');
       } else if(status==='response'){

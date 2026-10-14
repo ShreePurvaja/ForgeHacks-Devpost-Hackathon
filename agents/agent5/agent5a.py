@@ -101,7 +101,7 @@ class Agent5A_ApprovalRouter:
                 return []
         
         try:
-            with open(agent4_file, 'r') as f:
+            with open(agent4_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             # Extract results from Agent 4 output
@@ -299,7 +299,7 @@ class Agent5A_ApprovalRouter:
         
         filename = f"edi_output/837_{claim_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.edi"
         
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write(edi_content)
         
         logger.info(f"EDI file saved: {filename}")
@@ -458,7 +458,7 @@ class Agent5A_ApprovalRouter:
         
         # Save results
         output_file = f"agent5a_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(output_file, 'w') as f:
+        with open(output_file, 'w', encoding='utf-8') as f:
             json.dump({
                 "timestamp": datetime.now().isoformat(),
                 "claims_processed": len(results),

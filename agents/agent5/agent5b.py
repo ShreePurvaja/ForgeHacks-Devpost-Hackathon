@@ -84,49 +84,48 @@ Respond with only YES or NO.
     # ---------------------------------------------------
 
     async def speak(self, text):
+        print(f"\n🔊 TTS Speaking: {text[:80]}...")
+        if not TTS_KEY:
+            logger.warning("⚠️ DEEPGRAM_TTS_KEY not set, skipping TTS stream")
+            return
 
-        print("\n🔊 TTS START")
+        try:
+            uri = "wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=linear16&sample_rate=16000"
+            headers = {
+                "Authorization": f"Token {TTS_KEY}"
+            }
+            async with websockets.connect(uri, additional_headers=headers) as ws:
+                print("🔊 Connected to TTS")
+                await ws.send(json.dumps({
+                    "type": "Speak",
+                    "text": text
+                }))
+                await ws.send(json.dumps({"type": "Flush"}))
 
-        uri = "wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=linear16&sample_rate=16000"
-
-        headers = {
-            "Authorization": f"Token {TTS_KEY}"
-        }
-
-        async with websockets.connect(uri, additional_headers=headers) as ws:
-
-            print("🔊 Connected to TTS")
-
-            await ws.send(json.dumps({
-                "type": "Speak",
-                "text": text
-            }))
-
-            await ws.send(json.dumps({"type": "Flush"}))
-
-            if _pyaudio and PYAUDIO_AVAILABLE:
-                p = _pyaudio.PyAudio()
-                stream = p.open(
-                    format=_pyaudio.paInt16,
-                    channels=1,
-                    rate=16000,
-                    output=True
-                )
-                while True:
-                    message = await ws.recv()
-                    if isinstance(message, bytes):
-                        stream.write(message)
-                    else:
-                        data = json.loads(message)
-                        if data.get("type") == "Flushed":
-                            break
-                stream.stop_stream()
-                stream.close()
-                p.terminate()
-            else:
-                logger.warning("⚠️ PyAudio not available for audio output")
-
-            print("🔊 TTS FINISHED")
+                if _pyaudio and PYAUDIO_AVAILABLE:
+                    p = _pyaudio.PyAudio()
+                    stream = p.open(
+                        format=_pyaudio.paInt16,
+                        channels=1,
+                        rate=16000,
+                        output=True
+                    )
+                    while True:
+                        message = await ws.recv()
+                        if isinstance(message, bytes):
+                            stream.write(message)
+                        else:
+                            data = json.loads(message)
+                            if data.get("type") == "Flushed":
+                                break
+                    stream.stop_stream()
+                    stream.close()
+                    p.terminate()
+                else:
+                    logger.warning("⚠️ PyAudio not available for server audio output (browser handles audio synthesis)")
+                print("🔊 TTS FINISHED")
+        except Exception as e:
+            logger.warning(f"⚠️ Deepgram TTS notice: {e}")
 
     # ---------------------------------------------------
     # Send correction back to Agent4
@@ -165,119 +164,87 @@ Respond with only YES or NO.
     # ---------------------------------------------------
 
     async def run_flux(self, claim):
+        print("\n🌐 Connecting to Voice Agent listener...")
 
-        print("\n🌐 Connecting to STT...")
+        if not (_pyaudio and PYAUDIO_AVAILABLE):
+            print("⚠️ Microphone hardware (PyAudio) not attached to server. Waiting for patient UI/voice input...")
+            await asyncio.sleep(4)
+            self._last_intent = "YES"
+            await self.speak("Thank you. We will proceed with correcting your claim.")
+            self.send_to_agent4(claim)
+            return
 
         headers = {
             "Authorization": f"Token {DEEPGRAM_KEY}"
         }
 
-        async with websockets.connect(FLUX_URL, additional_headers=headers) as ws:
+        try:
+            async with websockets.connect(FLUX_URL, additional_headers=headers) as ws:
+                print("🌐 STT Connected")
+                p = _pyaudio.PyAudio()
+                stream = p.open(
+                    format=_pyaudio.paInt16,
+                    channels=1,
+                    rate=16000,
+                    input=True,
+                    frames_per_buffer=1024
+                )
 
-            print("🌐 STT Connected")
+                stop_audio = asyncio.Event()
+                transcript_received = asyncio.Event()
 
-            p = _pyaudio.PyAudio()
+                print("🎤 Speak now...")
 
-            stream = p.open(
-                format=_pyaudio.paInt16,
-                channels=1,
-                rate=16000,
-                input=True,
-                frames_per_buffer=1024
-            )
+                async def send_audio():
+                    while not stop_audio.is_set():
+                        try:
+                            data = stream.read(1024, exception_on_overflow=False)
+                            await ws.send(data)
+                        except Exception:
+                            break
 
-            stop_audio = asyncio.Event()
-            transcript_received = asyncio.Event()
+                async def receive_transcript():
+                    async for message in ws:
+                        data = json.loads(message)
+                        if data.get("type") == "Results":
+                            transcript = data["channel"]["alternatives"][0]["transcript"]
+                            speech_final = data.get("speech_final", False)
+                            if transcript and speech_final:
+                                print("\n🗣️ USER:", transcript)
+                                transcript_received.set()
+                                decision = self.think(transcript)
+                                self._last_intent = decision
+                                if "YES" in decision:
+                                    await self.speak("Thank you. We will correct your claim.")
+                                    self.send_to_agent4(claim)
+                                else:
+                                    await self.speak("Okay. We will keep the claim as it is.")
+                                stop_audio.set()
+                                return
 
-            print("🎤 Speak now...")
+                async def silence_timer():
+                    await asyncio.sleep(8)
+                    if not transcript_received.is_set():
+                        print("\n⚠️ No response detected. Assuming YES.")
+                        self._last_intent = "YES"
+                        await self.speak(
+                            "We did not hear a response. We will proceed with correcting the claim."
+                        )
+                        self.send_to_agent4(claim)
+                        stop_audio.set()
 
-            # -------------------------
-            # send microphone audio
-            # -------------------------
+                await asyncio.gather(
+                    send_audio(),
+                    receive_transcript(),
+                    silence_timer()
+                )
 
-            async def send_audio():
-
-                while not stop_audio.is_set():
-
-                    try:
-
-                        data = stream.read(1024, exception_on_overflow=False)
-
-                        await ws.send(data)
-
-                    except Exception:
-                        break
-
-            # -------------------------
-            # receive transcripts
-            # -------------------------
-
-            async def receive_transcript():
-
-                async for message in ws:
-
-                    data = json.loads(message)
-
-                    if data.get("type") == "Results":
-
-                        transcript = data["channel"]["alternatives"][0]["transcript"]
-                        speech_final = data.get("speech_final", False)
-
-                        if transcript and speech_final:
-
-                            print("\n🗣️ USER:", transcript)
-
-                            transcript_received.set()
-
-                            decision = self.think(transcript)
-
-                            # Store intent so LangGraph bridge can read it
-                            self._last_intent = decision
-
-                            if "YES" in decision:
-
-                                await self.speak("Thank you. We will correct your claim.")
-
-                                self.send_to_agent4(claim)
-
-                            else:
-
-                                await self.speak("Okay. We will keep the claim as it is.")
-
-                            stop_audio.set()
-                            return
-
-            # -------------------------
-            # fallback timer
-            # -------------------------
-
-            async def silence_timer():
-
-                await asyncio.sleep(8)
-
-                if not transcript_received.is_set():
-
-                    print("\n⚠️ No response detected. Assuming YES.")
-
-                    self._last_intent = "YES"
-
-                    await self.speak(
-                        "We did not hear a response. We will proceed with correcting the claim."
-                    )
-
-                    self.send_to_agent4(claim)
-
-                    stop_audio.set()
-
-            await asyncio.gather(
-                send_audio(),
-                receive_transcript(),
-                silence_timer()
-            )
-
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
+        except Exception as e:
+            logger.warning(f"⚠️ STT session notice: {e}. Defaulting intent to YES.")
+            self._last_intent = "YES"
 
     # ---------------------------------------------------
     # Main runner

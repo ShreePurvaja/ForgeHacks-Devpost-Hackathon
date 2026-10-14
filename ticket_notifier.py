@@ -106,6 +106,11 @@ def _ensure_tickets_table():
             closed_email_sent  INTEGER DEFAULT 0
         )
     ''')
+    for col, ctype in [("outcome", "TEXT"), ("open_email_sent", "INTEGER DEFAULT 0"), ("closed_email_sent", "INTEGER DEFAULT 0")]:
+        try:
+            cursor.execute(f"ALTER TABLE tickets ADD COLUMN {col} {ctype}")
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 

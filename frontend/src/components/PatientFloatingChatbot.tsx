@@ -5,6 +5,7 @@ import {
 import { sendPatientChatPrompt, bookSurgeryApi, orderScanApi } from '@/lib/api';
 import { PatientLang, PATIENT_TRANSLATIONS } from '@/lib/i18n/patient_translations';
 import { useDemoEngine, demoEngine } from '@/lib/demoEngine';
+import { renderMarkdown } from '@/lib/renderMarkdown';
 
 interface Message {
   id: string;
@@ -483,7 +484,13 @@ export default function PatientFloatingChatbot({ patientId, cashThreshold, lang 
                     </div>
                   )}
 
-                  <p className="whitespace-pre-line">{m.text}</p>
+                  {m.sender === 'bot' ? (
+                    <div className="text-xs leading-relaxed">
+                      {renderMarkdown(m.text)}
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-line text-xs">{m.text}</p>
+                  )}
                   <span
                     className={`block text-[9px] mt-1 text-right font-mono ${
                       m.sender === 'user' ? 'text-zinc-400' : 'text-zinc-400'

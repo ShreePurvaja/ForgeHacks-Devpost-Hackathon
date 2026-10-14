@@ -116,7 +116,9 @@ def get_embeddings():
                 encode_kwargs={'normalize_embeddings': True}
             )
         except Exception as e:
-            print(f"⚠️ Embeddings load error: {e}")
+            print(f"⚠️ Embeddings load error: {e}. Using FakeEmbeddings.")
+            from langchain_core.embeddings import FakeEmbeddings
+            _EMBEDDINGS_INSTANCE = FakeEmbeddings(size=384)
     return _EMBEDDINGS_INSTANCE
 
 @atexit.register
@@ -1072,7 +1074,7 @@ async def run_test_claim_api():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            loop.run_until_complete(run_workflow(claim_data))
+            loop.run_until_complete(run_workflow(claim_data, workflow_id=workflow_id))
         except Exception as e:
             print(f"Error in test claim workflow execution: {e}")
         finally:

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { X, Search, Database, ShieldCheck, Send, PhoneCall, Terminal, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { X, Search, Database, ShieldCheck, Send, PhoneCall, Terminal, CheckCircle2, AlertCircle, Loader2, Volume2 } from 'lucide-react';
 import { WorkflowMessage } from '@/lib/api';
+import { renderMarkdown } from '@/lib/renderMarkdown';
 
 interface WorkflowModalProps {
   isOpen: boolean;
@@ -22,10 +23,82 @@ export default function WorkflowModal({
   messages,
 }: WorkflowModalProps) {
   const logEndRef = useRef<HTMLDivElement>(null);
+  const lastSpokenRef = useRef<string>('');
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+
+  const cleanSpeechText = (raw: string): string => {
+    return raw
+      .replace(/^.*?Speaking:\s*"?/i, '')
+      .replace(/["…]+$/g, '')
+      .replace(/[*_#`~]+/g, '')
+      // Remove emoji characters that interfere with speech synthesis engines
+      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .trim();
+  };
+
+  const speakText = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      const cleanText = cleanSpeechText(text);
+      if (!cleanText) return;
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utteranceRef.current = utterance; // Prevent garbage collection in Chromium
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      utterance.onstart = () => setIsPlayingVoice(true);
+      utterance.onend = () => {
+        setIsPlayingVoice(false);
+        utteranceRef.current = null;
+      };
+      utterance.onerror = () => {
+        setIsPlayingVoice(false);
+        utteranceRef.current = null;
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('Speech synthesis error:', e);
+      setIsPlayingVoice(false);
+    }
+  }, []);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+
+    // Auto-detect Agent 5B voice outreach message in the message trace
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window && messages.length > 0) {
+      const speechMsg = [...messages].reverse().find(
+        (m) =>
+          (m.agent?.toLowerCase().includes('5b') || m.status === 'speaking') &&
+          (m.message?.toLowerCase().includes('speaking:') || m.status === 'speaking')
+      );
+
+      if (speechMsg && speechMsg.message && speechMsg.message !== lastSpokenRef.current) {
+        lastSpokenRef.current = speechMsg.message;
+        const timer = setTimeout(() => {
+          speakText(speechMsg.message);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [messages, speakText]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -154,6 +227,53 @@ export default function WorkflowModal({
           </div>
         </div>
 
+        {/* Agent 5B Voice Outreach Callout Widget */}
+        {(() => {
+          const latestVoiceMsg = messages
+            .slice()
+            .reverse()
+            .find(
+              (m) =>
+                (m.agent?.toLowerCase().includes('5b') || m.status === 'speaking') &&
+                (m.message?.toLowerCase().includes('speaking:') ||
+                  m.message?.toLowerCase().includes('calling patient') ||
+                  m.status === 'speaking')
+            );
+
+          if (!latestVoiceMsg) return null;
+
+          const displayText = cleanSpeechText(latestVoiceMsg.message);
+
+          return (
+            <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-950/60 to-slate-900/90 p-4 mb-6 shadow-xl shadow-rose-950/40 animate-slide-up">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    <PhoneCall className="h-5 w-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-rose-300">Agent 5B Voice Telephony Call</span>
+                      <span className="flex h-2 w-2 rounded-full bg-rose-400 animate-ping" />
+                    </div>
+                    <p className="text-[11px] text-slate-200 mt-1 italic">
+                      "{displayText || 'Agent 5B is conducting live patient call verification.'}"
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => speakText(latestVoiceMsg.message)}
+                  className="shrink-0 flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white px-3.5 py-2 text-xs font-semibold shadow-md transition cursor-pointer"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  {isPlayingVoice ? 'Speaking Now...' : '🔊 Hear Agent Voice'}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Streaming Log Terminal */}
         <div className="rounded-2xl border border-slate-800 bg-slate-950/90 p-4 font-mono text-xs shadow-inner">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-3">
@@ -163,19 +283,21 @@ export default function WorkflowModal({
             <span className="text-[10px] text-slate-500">{messages.length} messages</span>
           </div>
 
-          <div className="max-h-52 overflow-y-auto space-y-1.5 pr-2">
+          <div className="max-h-52 overflow-y-auto space-y-2 pr-2">
             {messages.length === 0 ? (
               <p className="text-slate-600 text-[11px] italic">Waiting for agent events...</p>
             ) : (
               messages.map((msg, idx) => (
                 <div key={idx} className="flex items-start gap-2 text-[11px] leading-relaxed">
-                  <span className="text-slate-600 shrink-0">
+                  <span className="text-slate-600 shrink-0 font-mono">
                     [{new Date(msg.ts).toLocaleTimeString()}]
                   </span>
                   <span className={`font-bold shrink-0 ${getLogAgentColor(msg.agent)}`}>
                     {msg.agent}:
                   </span>
-                  <span className="text-slate-300 break-all">{msg.message}</span>
+                  <div className="text-slate-300 break-words flex-1 leading-normal font-sans text-xs">
+                    {renderMarkdown(msg.message)}
+                  </div>
                 </div>
               ))
             )}

@@ -1,0 +1,12 @@
+{
+  "id": "CLM_OFFICE_001",
+  "patient_id": "pat001",
+  "patient_name": "Robert Johnson",
+  "code": "99213",
+  "procedure_code": "99213",
+  "description": "Routine Office Visit for Evaluation and Management",
+  "dose": 1.0,
+  "units": 1,
+  "date_of_service": "2026-03-15",
+  "diagnosis": "Upper Respiratory Tract Infection (URTI)"
+}

@@ -381,16 +381,19 @@ Your response must be valid JSON only, no other text.
             raw_content = response.content if hasattr(response, 'content') else str(response)
             decision = None
             
+            # Remove any reasoning tags like <think>...</think>
+            cleaned_content = re.sub(r'<think>.*?</think>', '', raw_content, flags=re.DOTALL).strip()
+            
             # 1. Try direct json.loads
             try:
-                decision = json.loads(raw_content)
+                decision = json.loads(cleaned_content)
                 logger.info("  Groq API responded with valid JSON")
             except Exception:
                 pass
             
             # 2. Try removing markdown code blocks (```json ... ```)
             if not decision:
-                cleaned = re.sub(r'```(?:json)?\s*', '', raw_content)
+                cleaned = re.sub(r'```(?:json)?\s*', '', cleaned_content)
                 cleaned = re.sub(r'```', '', cleaned).strip()
                 try:
                     decision = json.loads(cleaned)
@@ -400,10 +403,10 @@ Your response must be valid JSON only, no other text.
             
             # 3. Try regex extraction with trailing comma cleaning
             if not decision:
-                json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+                json_match = re.search(r'(\{[\s\S]*\})', cleaned_content)
                 if json_match:
                     try:
-                        json_str = json_match.group(0)
+                        json_str = json_match.group(1)
                         # Remove trailing commas before } or ]
                         json_str_cleaned = re.sub(r',\s*([\}\]])', r'\1', json_str)
                         decision = json.loads(json_str_cleaned)

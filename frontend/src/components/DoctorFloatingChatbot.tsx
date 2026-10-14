@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, User, RefreshCw, Sparkles } from 'lucide-react';
 import { sendDoctorAiChatPrompt } from '@/lib/api';
+import { renderMarkdown } from '@/lib/renderMarkdown';
 
 interface ChatMessage {
   id: string;
@@ -141,7 +142,11 @@ export default function DoctorFloatingChatbot({ onScheduleUpdated }: DoctorFloat
                       : 'bg-white border border-zinc-200 text-zinc-800 font-normal rounded-bl-none shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
                   }`}
                 >
-                  <p>{m.text}</p>
+                  {m.sender === 'bot' ? (
+                    <div className="text-xs leading-relaxed">{renderMarkdown(m.text)}</div>
+                  ) : (
+                    <p className="whitespace-pre-line text-xs">{m.text}</p>
+                  )}
                   <span className={`block text-[9px] mt-1 text-right font-mono ${m.sender === 'user' ? 'text-zinc-400' : 'text-zinc-400'}`}>
                     {m.timestamp}
                   </span>

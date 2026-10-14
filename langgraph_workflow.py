@@ -315,9 +315,12 @@ def agent4_validator(state: AgentState) -> AgentState:
 
         if decision.get('decision') == 'APPROVED':
             state = add_message(state, 'Agent 4', f"✅ Claim APPROVED — Confidence: {decision.get('confidence','N/A')}", 'complete')
-        else:
+        elif decision.get('decision') == 'REJECTED':
             snippet = (decision.get('reasoning') or '')[:100]
             state = add_message(state, 'Agent 4', f"❌ Claim REJECTED — {snippet}…", 'complete')
+        else:
+            snippet = (decision.get('reasoning') or 'Under review')[:100]
+            state = add_message(state, 'Agent 4', f"⚠️ Status: {decision.get('decision', 'PENDING_REVIEW')} — {snippet}…", 'complete')
 
         if decision.get('reasoning'):
             state = add_message(state, 'Agent 4', f"Reason: {decision['reasoning'][:150]}…", 'info')
@@ -467,7 +470,7 @@ def agent5b_voice(state: AgentState) -> AgentState:
             f"It was rejected because {reason}. "
             f"Would you like us to correct it?"
         )
-        state = add_message(state, 'Agent 5B', f'🔊 Speaking: "{intro_text[:120]}…"', 'speaking')
+        state = add_message(state, 'Agent 5B', f'🔊 Speaking: "{intro_text}"', 'speaking')
         state = add_message(state, 'Agent 5B',
             '📞 Calling patient — Deepgram TTS active, microphone open…', 'speaking')
  
@@ -600,9 +603,11 @@ def route_after_validation(state: AgentState) -> str:
     decision = (state.get('validation_result') or {}).get('decision', '')
     if decision == 'APPROVED':
         return 'agent5a'
-    elif decision == 'REJECTED':
+    elif decision in ('REJECTED', 'PENDING_REVIEW'):
         return 'agent5b'
     else:
+        if not state.get('final_decision'):
+            state['final_decision'] = 'ERROR'
         return 'error'
 
 def route_after_voice(state: AgentState) -> str:
@@ -633,8 +638,9 @@ def build_workflow():
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-async def run_workflow(claim_data: dict) -> str:
-    workflow_id = str(uuid.uuid4())
+async def run_workflow(claim_data: dict, workflow_id: Optional[str] = None) -> str:
+    if not workflow_id:
+        workflow_id = str(uuid.uuid4())
     print(f"\n{'='*60}\n🚀 Workflow: {workflow_id}\n{'='*60}")
 
     workflow = build_workflow()

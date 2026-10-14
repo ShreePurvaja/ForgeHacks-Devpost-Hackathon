@@ -45,6 +45,37 @@ export default function AdminPage() {
     loadData();
   }, [loadData]);
 
+  // Live polling for active workflow messages in WorkflowModal
+  useEffect(() => {
+    if (!activeWorkflowId || !isWorkflowModalOpen) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const data = await fetchWorkflowMessages(activeWorkflowId);
+        if (!isMounted) return;
+
+        if (data.messages && data.messages.length > 0) {
+          setWorkflowMessages(data.messages);
+        }
+        if (data.current_step) setCurrentStep(data.current_step);
+        if (data.status) setWorkflowStatus(data.status);
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(interval);
+          loadData();
+        }
+      } catch (e) {
+        console.error('Error polling workflow status:', e);
+      }
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeWorkflowId, isWorkflowModalOpen, loadData]);
+
   const handleUploadSuccess = async () => {
     setTimeout(async () => {
       try {
@@ -53,6 +84,9 @@ export default function AdminPage() {
           const latest = wfs[0];
           setActiveWorkflowId(latest.id);
           setActiveClaimId(latest.claim_id || latest.id);
+          setWorkflowMessages([]);
+          setCurrentStep('Initializing');
+          setWorkflowStatus('running');
           setIsWorkflowModalOpen(true);
         }
       } catch (e) {

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Bot, User, RefreshCw, Zap, Shield, Database } from 'lucide-react';
 import { sendAdminChatPrompt } from '@/lib/api';
 import { demoEngine } from '@/lib/demoEngine';
+import { renderMarkdown } from '@/lib/renderMarkdown';
 
 interface ChatMessage {
   id: string;
@@ -168,7 +169,11 @@ export default function AdminFloatingChatbot({ onDataRefresh }: AdminFloatingCha
                         : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-xs'
                     }`}
                   >
-                    <p>{msg.text}</p>
+                    {msg.sender === 'bot' ? (
+                      <div>{renderMarkdown(msg.text)}</div>
+                    ) : (
+                      <p className="whitespace-pre-line">{msg.text}</p>
+                    )}
                     {msg.cached && (
                       <span className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase tracking-wider">
                         <Zap className="h-2.5 w-2.5" /> Redis Memory Cached (0.01s)

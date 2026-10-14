@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { PhoneCall, Check, X, Volume2, Mic, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { sendVoiceResponse } from '@/lib/api';
+import { renderMarkdown } from '@/lib/renderMarkdown';
 
 interface VoiceInterfaceModalProps {
   isOpen: boolean;
@@ -24,25 +25,57 @@ export default function VoiceInterfaceModal({
   const [responseSubmitted, setResponseSubmitted] = useState<'YES' | 'NO' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const utteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Speak transcript using Web Speech API when modal opens
+  const cleanSpeechText = (raw: string): string => {
+    return raw
+      .replace(/^Agent\s*5B:\s*/i, '')
+      .replace(/^.*?Speaking:\s*"?/i, '')
+      .replace(/["…]+$/g, '')
+      .replace(/[*_#`~]+/g, '')
+      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .trim();
+  };
+
+  // Speak transcript using Web Speech API
   const speakTranscript = React.useCallback(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const cleanText = transcript.replace(/^Agent\s*5B:\s*/i, '');
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-      utterance.onstart = () => setIsPlayingAudio(true);
-      utterance.onend = () => setIsPlayingAudio(false);
-      utterance.onerror = () => setIsPlayingAudio(false);
-      window.speechSynthesis.speak(utterance);
+      try {
+        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        const cleanText = cleanSpeechText(transcript);
+        if (!cleanText) return;
+
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utteranceRef.current = utterance;
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.onstart = () => setIsPlayingAudio(true);
+        utterance.onend = () => {
+          setIsPlayingAudio(false);
+          utteranceRef.current = null;
+        };
+        utterance.onerror = () => {
+          setIsPlayingAudio(false);
+          utteranceRef.current = null;
+        };
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.error('Speech synthesis error in VoiceInterfaceModal:', e);
+        setIsPlayingAudio(false);
+      }
     }
   }, [transcript]);
 
   React.useEffect(() => {
     if (isOpen) {
-      speakTranscript();
+      const timer = setTimeout(() => {
+        speakTranscript();
+      }, 400);
+      return () => clearTimeout(timer);
     }
     return () => {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -128,7 +161,9 @@ export default function VoiceInterfaceModal({
               <Volume2 className="h-3 w-3" /> {isPlayingAudio ? 'Speaking...' : 'Replay Audio'}
             </button>
           </div>
-          <p className="italic">{transcript}</p>
+          <div className="italic text-slate-200 text-xs">
+            {renderMarkdown(transcript)}
+          </div>
         </div>
 
         {/* User Choice / Action buttons */}
